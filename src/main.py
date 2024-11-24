@@ -37,11 +37,35 @@ settings = {
                 },
             },
         },
+        {
+            'type': 'function',
+            'function': {
+            'name': 'divide',
+            'description': '获取两个数相除的结果',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                'first': {
+                    'type': 'number',
+                    'description': '被除数',
+                },
+                'second': {
+                    'type': 'number',
+                    'description': '除数',
+                    },
+                },
+                'required': ['first', 'second'],
+                },
+            },
+        },
     ]
 }
 
 def add(first,second):
     return {'result':first+second}
+
+def divide(first,second):
+    return {'result':first/second}
 
 # @cl.set_starters
 # async def set_starters():
@@ -73,25 +97,27 @@ async def prase_function_call(msg,model_response,messages):
     tool_calls = model_response.choices[0].delta.tool_calls
     print("tool_calls",tool_calls)
     for tool_call in tool_calls:
+        function_result = None
         if tool_call.function.name == 'add':
             args = tool_call.function.arguments
             function_result = add(**json.loads(args))
-            messages.append({
+        elif tool_call.function.name == 'divide':
+            args = tool_call.function.arguments
+            function_result = divide(**json.loads(args))
+        messages.append({
                 "role": "tool",
                 "content": f"{json.dumps(function_result)}",
                 "tool_call_id":tool_call.id
             })
-            response = client.chat.completions.create(
-                messages=messages,
-                model='glm-4-flash',
-                stream=True,
-            )
-            for chunk in response:
-                if chunk.choices[0].delta.tool_calls:
-                    message = prase_function_call(chunk,messages)
-                    await msg.stream_token(message)
-                else:
-                    await msg.stream_token(chunk.choices[0].delta.content)
+        response = client.chat.completions.create(
+            messages=messages,
+            **settings
+        )
+        for chunk in response:
+            if chunk.choices[0].delta.tool_calls:
+                await prase_function_call(msg,chunk,messages)
+            else:
+                await msg.stream_token(chunk.choices[0].delta.content)
 
 @cl.on_chat_start
 def start_chat():
