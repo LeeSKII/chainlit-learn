@@ -3,7 +3,7 @@ from urllib import response
 from dotenv import load_dotenv
 import os
 from zhipuai import ZhipuAI
-from openai import OpenAI
+from openai_test import OpenAI
 import chainlit as cl
 import json
 
